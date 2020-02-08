@@ -1,0 +1,38 @@
+{
+    "id": {
+        "type": "integer"
+    },
+    "note_id": {
+        "type": "integer"
+    },
+    "data_id": {
+        "type": "integer"
+    },
+    "tag_id": {
+        "type": "integer"
+    },
+    "_needs": ["tags", "notes", "data"],
+    "_sql": {
+        "primary_key": ["note_id", "data_id"],
+        "foreign_key": {
+            "note_id": {
+                "references": {
+                    "table": "notes",
+                    "field": "id"
+                }
+            },
+            "data_id": {
+                "references": {
+                    "table": "data",
+                    "field": "id"
+                }
+            },
+            "tag_id": {
+                "references": {
+                    "table": "tags",
+                    "field": "id"
+                }
+            }
+        }
+    }
+}

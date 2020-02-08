@@ -1,0 +1,29 @@
+{
+    "id": {
+        "type": "integer",
+        "primary_key": true 
+    },
+    "parent_id": {
+        "type": "int",
+        "required": false,
+        "references": {
+            "field": "id"
+        }
+    },
+    "raw_data": {
+        "type": "text"
+    },
+    "_sql": {
+        "foreign_key":  {
+            "parent_id": {
+                "references": {
+                    "field": "id"
+                },
+                "on": {
+                    "delete": "cascade"
+                }
+            }
+        },
+        "unique": ["raw_data"]
+    }
+}

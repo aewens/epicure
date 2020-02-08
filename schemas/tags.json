@@ -1,0 +1,13 @@
+{
+    "id": {
+        "type": "integer",
+        "primary_key": true 
+    },
+    "tag": {
+        "type": "varchar",
+        "max_length": 64
+    },
+    "_sql": {
+        "unique": ["tag"]
+    }
+}

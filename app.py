@@ -1,4 +1,5 @@
 from database.sqlite import SQLite
+from database.schemas import Schemas
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -10,40 +11,10 @@ from typing import Any, Dict
 KeyedDict = Dict[str, Any]
 app = FastAPI()
 db = SQLite("x.db")
+schemas = Schemas()
 
-tables = dict()
-tables["tags"] = [
-    "tag VARCHAR(64)",
-    "UNIQUE (tag)"
-]
-tables["notes"] = [
-    "title VARCHAR(256)",
-    "contents TEXT NOT NULL",
-    "created_at TIMESTAMP NOT NULL",
-    "last_updated_at TIMESTAMP NOT NULL",
-    "UNIQUE (title)"
-]
-tables["data"] = [
-    "parent_id INTEGER REFERENCES data(id)",
-    "raw_data TEXT NOT NULL",
-    "CONSTRAINT fk_parent_menu FOREIGN KEY (parent_id) REFERENCES raw_data (id) ON DELETE CASCADE",
-    "UNIQUE (raw_data)"
-]
-tables["tagmap"] = [
-    "id INTEGER",
-    "note_id INTEGER",
-    "data_id INTEGER",
-    "tag_id INTEGER",
-    "PRIMARY KEY (note_id, data_id)",
-    "FOREIGN KEY (note_id) REFERENCES notes (id)",
-    "FOREIGN KEY (data_id) REFERENCES data (id)",
-    "FOREIGN KEY (tag_id) REFERENCES tags (id)"
-]
-
-all_tables = db.get_all_tables()
-for name, fields in tables.items():
-    if name not in all_tables:
-        db.create_table(name, fields)
+tables = schemas.sql
+schemas.create_tables(db)
 
 class Entry(BaseModel):
     table: str
