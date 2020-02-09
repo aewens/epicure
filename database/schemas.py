@@ -2,7 +2,7 @@ from helpers.datetime import now
 from helpers.encode import jots, jsto
 from helpers.general import generator, trap, eprint
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 
 import typing
 from pathlib import Path
@@ -114,9 +114,7 @@ class Schemas:
         return schema_models
 
     def _schema_factory(self, name, data):
-        inherits = (BaseModel,)
-        variables = dict()
-        annotations = variables["__annotations__"] = dict()
+        fields = dict()
         for key, value in data.items():
             if not isinstance(value, dict):
                 continue
@@ -127,27 +125,29 @@ class Schemas:
 
             if isinstance(value_type, str):
                 # Check if value is a built-in type
-                resolved_type = __builtins__.get(value_type)
+                field_type = __builtins__.get(value_type)
 
                 # Check if value is a type from the typing module
-                if resolved_type is None:
-                    resolved_type = getattr(typing, value_type, None)
+                if field_type is None:
+                    field_type = getattr(typing, value_type, None)
 
                 # Check if value is a type from the loaded modules
-                if resolved_type is None:
-                    resolved_type = globals().get(value_type)
+                if field_type is None:
+                    field_type = globals().get(value_type)
 
             else:
-                resolved_type = value_type
+                field_type = value_type
 
-            if resolved_type is not None:
-                annotations[key] = resolved_type
+            if field_type is None:
+                continue
 
             #default = value.get("default", None)
-            required = value.get("required", True)
-            variables[key] = Field(... if required else None, **value)
+            optional = value.pop("optional", True)
+            field_data = Field(None if optional else ..., **value)
+            fields[key] = field_type, field_data
 
-        return type(name, inherits, variables)
+        model_name = f"E{name[0].upper()}{name[1:]}"
+        return create_model(model_name, **fields)
 
     @trap(eprint)
     @generator
@@ -243,5 +243,10 @@ class Schemas:
         value_type = value.get("type")
         if value_type is not None:
             value["type"] = self.sql_map.get(value_type, value_type)
-            
+
+        value.pop("references", None)
+        required = value.pop("required", True)
+        if "optional" not in value:
+            value["optional"] = not required
+
         self.model[name][key] = value

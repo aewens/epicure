@@ -1,6 +1,7 @@
 {
     "id": {
-        "type": "integer"
+        "type": "integer",
+        "optional": true
     },
     "note_id": {
         "type": "integer"

@@ -1,4 +1,5 @@
-from sys import stderr
+from helpers.general import eprint
+
 from os import stat, remove
 from os.path import dirname, basename, isfile, isdir, join as path_join
 from shutil import copyfile
@@ -7,18 +8,19 @@ from operator import itemgetter
 from contextlib import closing, contextmanager
 from threading import Lock
 from sqlite3 import connect, register_converter, PARSE_DECLTYPES, PARSE_COLNAMES
-from sqlite3 import ProgrammingError, Error as SQLiteError
-
-def eprint(*args, **kwargs):
-    print(*args, file=stderr, **kwargs)
+from sqlite3 import IntegrityError, ProgrammingError, Error as SQLiteError
+from traceback import format_exc
 
 register_converter("BOOLEAN", lambda value: bool(int(value)))
 
 class SQLite:
-    def __init__(self, db_file, lock=Lock()):
+    def __init__(self, db_file, debug=False, lock=Lock()):
         self.db_file = db_file
         self.path = dirname(self.db_file)
         self.filename = basename(self.db_file)
+
+        self.debug = debug
+
         self.connection = None
         self.cursor = None
         self.memory = False
@@ -35,7 +37,7 @@ class SQLite:
             self.connection.execute("PRAGMA journal_mode = WAL")
             self.connection.execute("PRAGMA foreign_keys = ON")
         except SQLiteError as e:
-            eprint(e)
+            eprint(format_exc() if self.debug else str(e))
             self.connection = connect(":memory:")
             self.memory = True
         # self.cursor = self.connection.cursor()
@@ -63,9 +65,11 @@ class SQLite:
     def backup(self, backup_dir=None, backups=1):
         if backup_dir is None:
             backup_dir = self.path
+
         if not isdir(backup_dir):
             eprint("ERROR: Backup directory does not exist")
             return None
+
         suffix = strftime("-%Y%m%d-%H%M%S")
         backup_name = f"{self.filename} {suffix}"
         backup_file = path_join(backup_dir, backup_name)
@@ -84,14 +88,17 @@ class SQLite:
                 if commit:
                     with self.transaction():
                         result = cursor.execute(*args)
+
                 else:
                     result = cursor.execute(*args)
 
                 if not fetch:
                     return True
+
                 return cursor.fetchall()
-        except ProgrammingError as e:
-            eprint(e)
+
+        except (ProgrammingError, IntegrityError) as e:
+            eprint(format_exc() if self.debug else str(e))
             return False
 
     def fetch(self, executor, values=tuple(), commit=False):
@@ -165,18 +172,20 @@ class SQLite:
             where_values = where[1]
             executor = f"{executor} WHERE {where_query}"
             results = self.fetch(executor, where_values)
+
         else:
             results = self.fetch(executor)
 
-        found = list()
-        for result in results:
-            remap = dict()
-            for index, term in enumerate(search):
-                remap[term] = result[index]
+        #found = list()
+        #for result in results:
+        #    remap = dict()
+        #    for index, term in enumerate(search):
+        #        remap[term] = result[index]
 
-            found.append(remap)
+        #    found.append(remap)
 
-        return found
+        #return found
+        return results
 
     def lookup_one(self, table, search, where=None):
         result = self.lookup(table, search, where)

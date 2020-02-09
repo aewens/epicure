@@ -1,7 +1,8 @@
 {
     "id": {
         "type": "integer",
-        "primary_key": true 
+        "primary_key": true,
+        "optional": true
     },
     "tag": {
         "type": "varchar",
