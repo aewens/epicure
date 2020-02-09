@@ -176,16 +176,19 @@ class SQLite:
         else:
             results = self.fetch(executor)
 
-        #found = list()
-        #for result in results:
-        #    remap = dict()
-        #    for index, term in enumerate(search):
-        #        remap[term] = result[index]
+        found = list()
+        for result in results:
+            remap = dict()
+            for index, term in enumerate(search):
+                if term == "*":
+                    remap[term] = result
 
-        #    found.append(remap)
+                else:
+                    remap[term] = result[index]
 
-        #return found
-        return results
+            found.append(remap)
+
+        return found
 
     def lookup_one(self, table, search, where=None):
         result = self.lookup(table, search, where)

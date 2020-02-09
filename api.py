@@ -100,8 +100,10 @@ async def get_db_entries(db_name: str):
         res["status"] = "unknown"
         return res
 
-    entries = db.lookup_all(db_name)
+    fields = list(model.__fields__.keys())
     schema_model = jsto(model.schema_json())
+
+    entries = db.lookup(db_name, fields)
 
     res["status"] = "success"
     res["data"] = dict()
