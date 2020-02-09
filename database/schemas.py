@@ -2,7 +2,7 @@ from helpers.datetime import now
 from helpers.encode import jots, jsto
 from helpers.general import generator, trap, eprint
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import typing
 from pathlib import Path
@@ -105,6 +105,50 @@ class Schemas:
 
                 print()
 
+    def generate_models(self):
+        schema_models = dict()
+        for name, data in self.model.items():
+            schema_model = self._schema_factory(name, data)
+            schema_models[name] = schema_model
+
+        return schema_models
+
+    def _schema_factory(self, name, data):
+        inherits = (BaseModel,)
+        variables = dict()
+        annotations = variables["__annotations__"] = dict()
+        for key, value in data.items():
+            if not isinstance(value, dict):
+                continue
+
+            value_type = value.pop("type", None)
+            if value_type is None:
+                continue
+
+            if isinstance(value_type, str):
+                # Check if value is a built-in type
+                resolved_type = __builtins__.get(value_type)
+
+                # Check if value is a type from the typing module
+                if resolved_type is None:
+                    resolved_type = getattr(typing, value_type, None)
+
+                # Check if value is a type from the loaded modules
+                if resolved_type is None:
+                    resolved_type = globals().get(value_type)
+
+            else:
+                resolved_type = value_type
+
+            if resolved_type is not None:
+                annotations[key] = resolved_type
+
+            #default = value.get("default", None)
+            required = value.get("required", True)
+            variables[key] = Field(... if required else None, **value)
+
+        return type(name, inherits, variables)
+
     @trap(eprint)
     @generator
     def _parse_sql_meta(self):
@@ -198,28 +242,6 @@ class Schemas:
 
         value_type = value.get("type")
         if value_type is not None:
-            pass
-
-    def _schema_factory(self, name, data):
-        inherits = (BaseModel,)
-        variables = dict()
-        annotations = variables["__annotations__"] = dict()
-        for key, value in data.items():
-            resolver = None
-            if isinstance(value, str):
-                # Check if value is a built-in type
-                resolver = __builtin__.__dict__.get(value)
-
-                # Check if value is a type from the typing module
-                if resolver is None:
-                    resolver = getattr(typing, value, None)
-
-                # Check if value is a type from the loaded modules
-                if resolve is None:
-                    resolver = globals().get(value)
-
-            if resolve is not None:
-                annotations[key] = resolver
-
-        model = type(name, inherits, variables)
-
+            value["type"] = self.sql_map.get(value_type, value_type)
+            
+        self.model[name][key] = value

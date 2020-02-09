@@ -4,6 +4,7 @@
 *.swo
 *.db*
 test.py
+nginx.conf
 NOTES
 
 # ---> Python
