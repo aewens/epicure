@@ -1,80 +1,42 @@
 <template>
-    <v-app id="inspire">
-        <v-navigation-drawer v-model="drawer" app clipped>
-            <v-list dense>
-                <v-list-item link>
-                    <v-list-item-action>
-                        <v-icon>mdi-view-dashboard</v-icon>
-                    </v-list-item-action>
-                    <v-list-item-content>
-                        <v-list-item-title>Dashboard</v-list-item-title>
-                    </v-list-item-content>
-                </v-list-item>
-                <v-list-item link>
-                    <v-list-item-action>
-                        <v-icon>mdi-settings</v-icon>
-                    </v-list-item-action>
-                    <v-list-item-content>
-                        <v-list-item-title>Settings</v-list-item-title>
-                    </v-list-item-content>
-                </v-list-item>
-            </v-list>
-        </v-navigation-drawer>
-
-        <v-app-bar app clipped-left>
-            <v-app-bar-nav-icon @click.stop="drawer = !drawer" />
-            <v-toolbar-title>Epicure</v-toolbar-title>
-        </v-app-bar>
-
-        <v-content>
-            <v-container class="fill-height" fluid>
-                <v-row>
-                    <v-col class="pa-4 col-sm-12" v-for="(entries, db) in dbs">
-                        <v-card>
-                            <v-card-title>{{ db }}</v-card-title>
-                            <v-data-table
-                                :headers="schemas[db]"
-                                :items="entries"
-                                :items-per-page="5"
-                                class="elevation-1"
-                                :loading="schemas[db].length == 0"
-                                loading-text="Loading... Please wait">
-                            </v-data-table>
-                        </v-card>
-                    </v-col>
-                </v-row>
-            </v-container>
-        </v-content>
-
-        <v-footer app>
-            <span>&copy; 2020 Austin Ewens</span>
-        </v-footer>
-    </v-app>
+    <div class="container mx-auto py-5">
+        <h1 class="text-6xl text-center">Epicure</h1>
+        <div class="bg-gray-900 shadow-lg px-5 py-5 my-10"
+            v-for="(entries, db) in dbs" :key="db">
+            <h2 class="text-xl text-center underline capitalize">{{ db }}</h2>
+            <table class="table-fixed w-full">
+                <thead>
+                    <th v-for="field in schemas[db]" :key="field.id"
+                        :class="['px-4', 'py-2', 'w-1/' + schemas[db].length]">
+                        {{ field.title }}
+                    </th>
+                </thead>
+                <tbody>
+                    <tr v-for="entry in entries" :key="entry.id">
+                        <td v-for="(value, key) in entry" :key="key"
+                            :class="['px-4', 'py-2', 'border', 
+                            'w-1/' + entry.length]">
+                            {{ value }}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </template>
+
 
 <script>
 /*
 
-<div v-for="(entries, db) in dbs">
-    <h2>{{ db }}</h2>
-    <table class="table-fixed">
-        <thead>
-            <th class="w-1/8 px-4 py-2">ID</th>
-            <th class="w-1/8 px-4 py-2">PID</th>
-            <th class="w-3/4 px-4 py-2">Raw</th>
-        </thead>
-        <tbody>
-            <tr v-for="entry in entries" :key="entry.id">
-                <td class="w-1/8 px-4 py-2">{{ entry.id }}</td>
-                <td class="w-1/8 px-4 py-2">{{ entry.parent_id }}</td>
-                <td class="w-3/4 px-4 py-2">{{ entry.raw_data }}</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
+                    <th class="px-4 py-2">{{
+                        field.title
+                    }}</th>
 
+                        <td class="w-1/8 border border-gray-100 px-4 py-2">{{
+                            entry.id
+                        }}</td>
 */
-
 import { mapState } from "vuex";
 //import NavBar from "~/components/NavBar";
 
@@ -100,7 +62,7 @@ export default {
 
                     const properties = Object.keys(schema.properties);
                     const schema_keys = properties.map((prop) => {
-                        return {text: prop, value: prop};
+                        return schema.properties[prop];
                     });
                     store.commit("ADD_SCHEMA", [table, schema_keys]);
                 }
@@ -108,10 +70,7 @@ export default {
         }
     },
     computed: {
-        ...mapState(["dbs", "schemas", "drawer"])
-    },
-    created () {
-      this.$vuetify.theme.dark = true;
+        ...mapState(["dbs", "schemas"])
     },
 }
 </script>

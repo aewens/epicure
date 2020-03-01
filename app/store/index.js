@@ -1,7 +1,6 @@
 export const state = () => ({
     dbs: {},
     schemas: {},
-    drawers: null,
 });
 
 export const mutations = {

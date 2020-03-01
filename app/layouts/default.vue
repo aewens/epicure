@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="w-full h-screen bg-gray-800 bg-black text-white">
     <nuxt />
   </div>
 </template>
