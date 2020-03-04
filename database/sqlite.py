@@ -7,9 +7,10 @@ from time import strftime
 from operator import itemgetter
 from contextlib import closing, contextmanager
 from threading import Lock
-from sqlite3 import connect, register_converter, PARSE_DECLTYPES, PARSE_COLNAMES
-from sqlite3 import IntegrityError, ProgrammingError, Error as SQLiteError
 from traceback import format_exc
+from sqlite3 import connect, register_converter, PARSE_DECLTYPES, PARSE_COLNAMES
+from sqlite3 import (IntegrityError, ProgrammingError, OperationalError,
+    Error as SQLiteError)
 
 register_converter("BOOLEAN", lambda value: bool(int(value)))
 
@@ -97,7 +98,7 @@ class SQLite:
 
                 return cursor.fetchall()
 
-        except (ProgrammingError, IntegrityError) as e:
+        except (ProgrammingError, IntegrityError, OperationalError) as e:
             eprint(format_exc() if self.debug else str(e))
             return False
 
@@ -133,6 +134,9 @@ class SQLite:
         executor = f"INSERT INTO {table} ({keys}) VALUES({places})"
         return self.execute(executor, values, commit=commit)
 
+    """
+    e.g. delete("test", {"value": "xyz"}, ("id = ?", (1,)))
+    """
     def update(self, table, modification, where, commit=False):
         assert isinstance(modification, dict), "Expected dict"
         assert isinstance(where, tuple), "Expected tuple"
@@ -147,6 +151,9 @@ class SQLite:
         executor = f"UPDATE {table} SET {keys} WHERE {where_query}"
         return self.execute(executor, values, commit=commit)
 
+    """
+    e.g. delete("test", ("id = ?", (1,)))
+    """
     def delete(self, table, where, commit=False):
         assert isinstance(where, tuple), "Expected tuple"
         assert len(where) == 2, "Expected length of '2'"
@@ -158,12 +165,13 @@ class SQLite:
         executor = f"DELETE FROM {table} WHERE {where_query}"
         return self.execute(executor, values, commit=commit)
 
-    def lookup(self, table, search, where=None):
+    def lookup(self, table, search, where=None, limit= None):
         if type(search) != list:
             search = [search]
+
         keys = ",".join(search)
         executor = f"SELECT {keys} FROM {table}"
-        if where:
+        if where is not None:
             assert isinstance(where, tuple), "Expected tuple"
             assert len(where) == 2, "Expected length of '2'"
             assert isinstance(where[0], str), "Expected str"
@@ -171,12 +179,24 @@ class SQLite:
             where_query = where[0]
             where_values = where[1]
             executor = f"{executor} WHERE {where_query}"
+            if limit is not None:
+                asc = True
+                if limit < 0:
+                    limit = -limit
+                    asc = False
+
+                asc_desc = "ASC" if asc else "DESC"
+                executor = f"{executor} ORDER BY id {asc_desc} LIMIT {limit}"
+
             results = self.fetch(executor, where_values)
 
         else:
             results = self.fetch(executor)
 
         found = list()
+        if results is False:
+            return found
+
         for result in results:
             remap = dict()
             for index, term in enumerate(search):
@@ -194,8 +214,8 @@ class SQLite:
         result = self.lookup(table, search, where)
         return result[0] if len(result) > 0 else None
 
-    def lookup_all(self, table, where=None):
-        return self.lookup(table, ["*"], where)
+    def lookup_all(self, table, where=None, limit=None):
+        return self.lookup(table, ["*"], where, limit)
 
     def get_all_tables(self):
         executor = "SELECT name FROM sqlite_master WHERE type='table'"

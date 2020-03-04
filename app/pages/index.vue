@@ -1,9 +1,31 @@
 <template>
-    <div class="container mx-auto py-5">
+    <div class="container mx-auto py-5 flex flex-col">
         <h1 class="text-6xl text-center">Epicure</h1>
-        <div class="bg-gray-900 shadow-lg px-5 py-5 my-10"
+        <div class="bg-gray-900 shadow-lg px-5 py-5 my-10 rounded"
             v-for="(entries, db) in dbs" :key="db">
-            <h2 class="text-xl text-center underline capitalize">{{ db }}</h2>
+            <h2 class="text-xl text-center underline capitalize mb-2">
+                {{ db }}
+            </h2>
+            <form class="w-full bg-gray-700 p-5 rounded">
+                <div class="md:flex md:items-center mb-6"
+                    v-for="field in schemas[db]" :key="field.id">
+                    <div class="md:w-1/3 text-right px-4">
+                        <label>
+                            {{ field.title }}
+                        </label>
+                    </div>
+                    <div class="md:w-2/3">
+                        <input type="text" class="bg-gray-900 text-gray-200 rounded w-full py-2 px-4 leading-tight border border-gray-800 focus:border-white">
+                    </div>
+                </div>
+                <div class="md:flex md:justify-center">
+                    <div class="md:w-1/3">
+                        <button class="w-full shadow rounded text-white bg-blue-900 px-4 py-2 focus:shadow-outline">
+                            Add
+                        </button>
+                    </div>
+                </div>
+            </form>
             <table class="table-fixed w-full">
                 <thead>
                     <th v-for="field in schemas[db]" :key="field.id"
@@ -27,16 +49,6 @@
 
 
 <script>
-/*
-
-                    <th class="px-4 py-2">{{
-                        field.title
-                    }}</th>
-
-                        <td class="w-1/8 border border-gray-100 px-4 py-2">{{
-                            entry.id
-                        }}</td>
-*/
 import { mapState } from "vuex";
 //import NavBar from "~/components/NavBar";
 

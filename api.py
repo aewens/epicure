@@ -6,11 +6,14 @@ from fastapi import FastAPI
 from pydantic import BaseModel, create_model
 from starlette.requests import Request
 from starlette.responses import Response, RedirectResponse, JSONResponse
+from jsonschema import validate
+from jsonschema.exceptions import ValidationError
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple, Union, Optional
 from enum import Enum
 
 KeyedDict = Dict[str, Any]
+DataType = Tuple[Union[str, int, float, bool]]
 app = FastAPI()
 db = SQLite("x.db")
 schemas = Schemas()
@@ -88,7 +91,8 @@ async def get_all_dbs():
     return res
 
 @app.get("/api/db/{db_name}")
-async def get_db_entries(db_name: str):
+async def get_db_entries(db_name: str, where_query: Optional[str] = None,
+    limit: Optional[int] = None):
     res = dict()
     res["status"] = "error"
     if db_name not in db.get_all_tables():
@@ -103,7 +107,11 @@ async def get_db_entries(db_name: str):
     fields = list(model.__fields__.keys())
     schema_model = jsto(model.schema_json())
 
-    entries = db.lookup(db_name, fields)
+    where = None
+    if where_query is not None:
+        where = where_query, tuple()
+
+    entries = db.lookup(db_name, fields, where=where, limit=limit)
 
     res["status"] = "success"
     res["data"] = dict()
@@ -112,11 +120,97 @@ async def get_db_entries(db_name: str):
     return res
 
 @app.post("/api/db/{db_name}/get")
-async def get_db(db_name: str, entry: Entry):
-    return entry.table
+async def get_db(db_name: str, where_query: str,
+    where_values: Optional[DataType] = None, limit: Optional[int] = None):
+    res = dict()
+    res["status"] = "error"
+    if db_name not in db.get_all_tables():
+        res["error"] = f"'{db_name}' is not a valid database, see /api/db"
+        return res
+
+    model = models.get(db_name)
+    if model is None:
+        res["status"] = "unknown"
+        return res
+
+    fields = list(model.__fields__.keys())
+    schema_model = jsto(model.schema_json())
+
+    where = None
+    if where_query is not None:
+        where = where_query, where_values
+        if where_values is None:
+            where = where_query, tuple()
+
+    entries = db.lookup(db_name, fields, where=where, limit=limit)
+
+    res["status"] = "success"
+    res["data"] = dict()
+    res["data"]["entries"] = entries
+    res["data"]["schema"] = schema_model
+    return res
+
+def is_valid(db_name: str, data: KeyedDict) -> int:
+    res = dict()
+    res["status"] = "error"
+    if db_name not in db.get_all_tables():
+        res["data"] = f"'{db_name}' is not a valid database, see /api/db"
+        return 1, res
+
+    model = models.get(db_name)
+    if model is None:
+        res["status"] = "unknown"
+        res["data"] = None
+        return 2, res
+
+    schema_model = jsto(model.schema_json())
+    try:
+        validate(instance=data, schema=schema_model)
+        return 0, res
+
+    except ValidationError as e:
+        res["data"] = str(e)
+        return 3, res
+
+@app.post("/api/db/{db_name}/put")
+async def put_db(db_name: str, data: KeyedDict):
+    valid_state, res = is_valid(db_name, data)
+    if valid_state != 0:
+        return res
+
+    with db.transaction():
+        res["status"] = "success"
+        res["data"] = db.insert(db_name, data)
+
+    return res
+
+@app.put("/api/db/{db_name}/fix")
+async def fix_db(db_name: str, data: KeyedDict, where_query: str,
+    where_values: Optional[DataType] = None):
+    valid_state, res = is_valid(db_name, data)
+    if valid_state != 0:
+        return res
+
+    if where_values is None:
+        where_values = tuple()
+
+    with db.transaction():
+        res["status"] = "success"
+        res["data"] = db.update(db_name, data, (where_query, where_values))
+
+    return res
+
+@app.delete("/api/db/{db_name}/pop")
+async def pop_db(db_name: str, entry_id: int):
+    res = dict()
+    with db.transaction():
+        res["success"] = "success"
+        res["data"] = db.delete(db_name, ("id = ?", (entry_id,)))
+
+    return res
 
 @app.post("/api/db/put")
-async def put_db(entry: DynamicEntry):
+async def put_any_db(entry: DynamicEntry):
     db_res = dict()
     fields = entry.__fields__
     for name in fields.keys():
@@ -148,7 +242,8 @@ async def drop_db(entry: Entry):
     with db.transaction():
         res["success"] = "success"
         res["data"] = db.drop_table(entry.table)
-        return res
+
+    return res
 
 @app.get("/api/notes")
 async def get_notes():
